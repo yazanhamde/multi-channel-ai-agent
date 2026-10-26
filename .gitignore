@@ -1,0 +1,16 @@
+# Environment variables - NEVER commit these
+.env
+
+# Uploaded files
+/uploads/
+
+# Composer dependencies - install with: composer install
+/vendor/
+
+# Logs
+*.log
+/logs/
+
+# OS files
+.DS_Store
+Thumbs.db
