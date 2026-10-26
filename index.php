@@ -1,50 +1,42 @@
 <?php
 /**
- * GET /
- * Health check — يُستخدم من monitoring tools أو Meta للتحقق من أن الـ server شغّال.
- * لا يكشف أي معلومات داخلية.
+ * index.php — يحل محل index.html
+ * بيحقن BUILD_TS (وقت آخر تعديل على ملفات الداشبورد) في كل روابط الـ JS
+ * عشان الكاش ينكسر تلقائياً بعد أي تعديل، بدون ما تلمس أي كود.
+ *
+ * كيف يشتغل:
+ *   - اقرأ index.html
+ *   - استبدل {{BUILD_TS}} بوقت آخر تعديل على ملفات الداشبورد
+ *   - ابعث الرد مع no-cache على index.php نفسه (عشان هو دايماً Fresh)
+ *   - الـ JS files هي اللي بتتكاش بالمتصفح، وبتنكسر بـ ?v=TIMESTAMP
  */
 
-declare(strict_types=1);
+$dir   = __DIR__;
+$files = array_merge(
+    glob($dir . '/*.js'),
+    glob($dir . '/*.html'),
+    glob($dir . '/sections/*.js')
+);
 
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-
-require_once __DIR__ . '/config/settings.php';
-require_once __DIR__ . '/config/db.php';
-
-// ── فحص صحة المكونات ─────────────────────────────────────────────────────
-
-$checks = [];
-
-// ✅ فحص قاعدة البيانات
-try {
-    getDB()->query('SELECT 1');
-    $checks['database'] = 'ok';
-} catch (Throwable) {
-    $checks['database'] = 'error';
+$latestMtime = 0;
+foreach ($files as $file) {
+    $mtime = filemtime($file);
+    if ($mtime > $latestMtime) {
+        $latestMtime = $mtime;
+    }
 }
 
-// ✅ فحص وجود المتغيرات الأساسية (يدعم متغيرات البيئة أو الثوابت المعرفة في settings.php)
-$hasOpenAI = getenv('OPENAI_KEY') || defined('OPENAI_KEY');
-$hasWA     = getenv('WA_TOKEN') || defined('WA_TOKEN') || defined('WA_VERIFY_TOKEN');
-$hasOwner  = getenv('OWNER_API_KEY') || defined('OWNER_API_KEY');
+// BUILD_TS = وقت آخر تعديل (أو وقت الحالي كـ fallback)
+$buildTs = $latestMtime > 0 ? (string)$latestMtime : (string)time();
 
-$checks['config'] = ($hasOpenAI && $hasWA) ? 'ok' : 'missing';
+// اقرأ index.html واستبدل كل {{BUILD_TS}}
+$html = file_get_contents($dir . '/index.html');
+$html = str_replace('{{BUILD_TS}}', $buildTs, $html);
 
-// ── تحديد الحالة العامة ───────────────────────────────────────────────────
-$allOk  = !in_array('error', $checks, true) && !in_array('missing', $checks, true);
-$status = $allOk ? 'healthy' : 'degraded';
+// ابعث الرد — index.php نفسه بدون كاش، الـ JS files بتتكاش بالمتصفح بـ ?v=
+header('Content-Type: text/html; charset=utf-8');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 
-http_response_code($allOk ? 200 : 503);
-
-// جلب اسم المتجر بأمان بدون استدعاء دالة غير معرفة
-$storeName = getenv('STORE_NAME') ?: (defined('STORE_NAME') ? STORE_NAME : 'WhatsApp AI Agent');
-
-echo json_encode([
-    'ok'        => $allOk,
-    'service'   => $storeName,
-    'status'    => $status,
-    'checks'    => $checks,
-    'timestamp' => date('c'),
-], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+echo $html;
