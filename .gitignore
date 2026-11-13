@@ -1,0 +1,18 @@
+# Environment & secrets
+.env
+*.env
+
+# Uploaded media (user data)
+uploads/
+
+# PHP dependencies
+vendor/
+
+# Dev/temp folders
+api-updates/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

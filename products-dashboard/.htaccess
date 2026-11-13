@@ -1,0 +1,14 @@
+# منع أي كاش (متصفح أو سيرفر/CDN) لملفات الداشبورد الأساسية
+# حتى أي تعديل يظهر فوراً بدون ما تحتاجي تفرّغي كاش يدوياً
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|js|json)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive Off
+</IfModule>
